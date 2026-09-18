@@ -1,0 +1,127 @@
+# Copyright (c) 2026 Rayman Zhang
+# SPDX-License-Identifier: AGPL-3.0-only
+name: Release draft
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.tag.outputs.sha }}
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")
+          test "$sha" = "$GITHUB_SHA"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+  validate:
+    needs: resolve
+    uses: ./.github/workflows/validate.yml
+    with:
+      sha: ${{ needs.resolve.outputs.sha }}
+      tag: ${{ needs.resolve.outputs.tag }}
+  build:
+    needs: [resolve, validate]
+    environment: release-signing
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: aarch64
+            target: aarch64-apple-darwin
+          - runner: macos-15-intel
+            arch: x86_64
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci
+      - run: rustup show
+      - name: Build, sign, notarize and staple
+        env:
+          EXPECTED_SHA: ${{ needs.resolve.outputs.sha }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+          BUILD_TARGET: ${{ matrix.target }}
+          BUILD_ARCH: ${{ matrix.arch }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash scripts/release/sign.sh
+      - name: Remove temporary signing material
+        if: always()
+        shell: bash
+        run: |
+          security delete-keychain "$RUNNER_TEMP/sidedeck-signing.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/sidedeck-signing.p12"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: release/*.dmg
+          if-no-files-found: error
+  draft:
+    needs: [resolve, validate, build]
+    runs-on: ubuntu-latest
+    environment: release-signing
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: signed-*-${{ github.run_attempt }}
+          path: release
+          merge-multiple: true
+      - name: Source archive and final manifest
+        env:
+          RELEASE_SHA: ${{ needs.resolve.outputs.sha }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          node scripts/release/source.mjs "$RELEASE_SHA" "$RELEASE_TAG" "release/SideDeck-${RELEASE_TAG#v}-source.tar.gz"
+          node scripts/release/release.mjs manifest release "$RELEASE_TAG" "$RELEASE_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+      - name: Upload draft only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: node scripts/release/github.mjs draft
+      - uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-template-${{ github.run_attempt }}
+          path: acceptance-template.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest-${{ github.run_attempt }}
+          path: release/manifest.json
+          retention-days: 90

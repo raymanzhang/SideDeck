@@ -1,0 +1,46 @@
+# Copyright (c) 2026 Rayman Zhang
+# SPDX-License-Identifier: AGPL-3.0-only
+name: Validate
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+    inputs:
+      sha:
+        required: true
+        type: string
+      tag:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify checkout
+        env:
+          EXPECTED_SHA: ${{ inputs.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: rustup show
+      - run: npm ci
+      - run: python3 scripts/release/scan-public-content.py
+      - name: Version and source links
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: node scripts/release/release.mjs check ${RELEASE_TAG:+"$RELEASE_TAG"}
+      - run: node --test tests/release.test.mjs
+      - run: npm test
+      - run: npx playwright install chromium webkit
+      - run: npm run test:browser
+      - run: npm run build
+      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml

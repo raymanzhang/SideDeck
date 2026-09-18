@@ -1,0 +1,10 @@
+{"timestamp": "2026-09-17T10:00:00Z", "type": "session_meta", "payload": {"id": "thread-a", "cwd": "/example/project", "cli_version": "0.154.0", "source": {"subagent": {"thread_spawn": {"parent_thread_id": "parent"}}}}}
+{"timestamp": "2026-09-17T10:00:01Z", "type": "event_msg", "payload": {"type": "task_started", "turn_id": "turn-a"}}
+{"timestamp": "2026-09-17T10:00:01Z", "type": "turn_context", "payload": {"turn_id": "turn-a", "model": "example-model", "effort": "high", "approval_policy": "on-request"}}
+{"timestamp": "2026-09-17T10:00:02Z", "type": "response_item", "payload": {"type": "function_call", "name": "update_plan", "call_id": "plan-a", "arguments": "{\"plan\": [{\"step\": \"Verify data\", \"status\": \"in_progress\"}]}"}}
+{"timestamp": "2026-09-17T10:00:03Z", "type": "response_item", "payload": {"type": "custom_tool_call", "name": "exec", "call_id": "tool-a", "input": "redacted"}}
+{"timestamp": "2026-09-17T10:00:04Z", "type": "response_item", "payload": {"type": "custom_tool_call_output", "call_id": "tool-a", "output": "redacted result"}}
+{"timestamp": "2026-09-17T10:00:05Z", "type": "event_msg", "payload": {"type": "token_count", "info": {"last_token_usage": {"total_tokens": 800}, "total_token_usage": {"total_tokens": 1000}, "model_context_window": 1000}}}
+{"timestamp": "2026-09-17T10:00:06Z", "type": "compacted", "payload": {"message": "redacted"}}
+{"timestamp": "2026-09-17T10:00:07Z", "type": "event_msg", "payload": {"type": "token_count", "info": {"last_token_usage": {"total_tokens": 200}, "total_token_usage": {"total_tokens": 1200}, "model_context_window": 1000}}}
+{"timestamp": "2026-09-17T10:00:08Z", "type": "event_msg", "payload": {"type": "task_complete", "turn_id": "turn-a"}}

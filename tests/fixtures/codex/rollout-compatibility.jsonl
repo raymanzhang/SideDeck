@@ -1,0 +1,7 @@
+{"timestamp": "2026-09-17T10:00:00Z", "type": "session_meta", "payload": {"session_id": "thread-b", "cwd": "/example/project", "cli_version": "synthetic-legacy"}}
+{"timestamp": "2026-09-17T10:00:01Z", "type": "event_msg", "payload": {"type": "task_started"}}
+{"timestamp": "2026-09-17T10:00:02Z", "type": "event_msg", "payload": {"type": "exec_command_begin", "call_id": "exec-b", "tool": "shell"}}
+{"timestamp": "2026-09-17T10:00:03Z", "type": "event_msg", "payload": {"type": "exec_command_end", "call_id": "exec-b", "exit_code": 1, "aggregated_output": "retryable failure"}}
+{"timestamp": "2026-09-17T10:00:04Z", "type": "event_msg", "payload": {"type": "mcp_tool_call_begin", "call_id": "mcp-b", "tool": "lookup"}}
+{"timestamp": "2026-09-17T10:00:05Z", "type": "event_msg", "payload": {"type": "mcp_tool_call_end", "call_id": "mcp-b", "output": "result"}}
+{"timestamp": "2026-09-17T10:00:06Z", "type": "event_msg", "payload": {"type": "task_completed"}}

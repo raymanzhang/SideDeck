@@ -1,0 +1,59 @@
+# Copyright (c) 2026 Rayman Zhang
+# SPDX-License-Identifier: AGPL-3.0-only
+name: Promote accepted draft
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing draft tag
+        required: true
+        type: string
+      channel:
+        description: Publication channel
+        required: true
+        type: choice
+        options: [prerelease, stable]
+      architectures:
+        description: Accepted architectures, comma-separated (aarch64,x86_64)
+        required: true
+        type: string
+      acceptance:
+        description: Completed acceptance JSON, bound to final DMG and source digests
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: release-publish
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Download draft assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true
+          mkdir release
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir release
+      - name: Verify evidence and publish existing assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: node scripts/release/github.mjs promote
